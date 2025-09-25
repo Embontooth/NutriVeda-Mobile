@@ -47,22 +47,22 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
+                  gradient: AppTheme.healingGradient,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.secondaryColor.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
+                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: Column(
                   children: [
                     Icon(
-                      Icons.local_hospital,
+                      Icons.spa,
                       size: 80,
-                      color: AppTheme.secondaryColor,
+                      color: AppTheme.saffronColor,
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -70,14 +70,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textColor,
+                        color: AppTheme.backgroundColor,
                       ),
                     ),
                     const Text(
-                      'Dietitian App',
+                      'Ayurvedic Nutrition & Wellness',
                       style: TextStyle(
                         fontSize: 16,
-                        color: AppTheme.textColor,
+                        color: AppTheme.backgroundColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -178,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Forgot Password?',
                             style: TextStyle(
-                              color: AppTheme.secondaryColor,
+                              color: AppTheme.terracottaColor,
                               fontWeight: FontWeight.w500,
                             ),
                           ),

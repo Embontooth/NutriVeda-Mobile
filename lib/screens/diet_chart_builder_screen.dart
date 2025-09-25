@@ -9,7 +9,6 @@ class DietChartBuilderScreen extends StatefulWidget {
 }
 
 class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
-  String _selectedPatient = 'John Doe';
   final List<String> _patients = ['John Doe', 'Sarah Wilson', 'Mike Johnson', 'Emily Davis'];
   
   final List<Map<String, dynamic>> _dietCharts = [
@@ -47,7 +46,7 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            gradient: AppTheme.serenityGradient,
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(16),
               bottomRight: Radius.circular(16),
@@ -56,11 +55,12 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Diet Chart Builder',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -117,16 +117,16 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
     Color statusColor;
     switch (chart['status']) {
       case 'Active':
-        statusColor = Colors.green;
+        statusColor = AppTheme.saffronColor;
         break;
       case 'Draft':
-        statusColor = Colors.orange;
+        statusColor = AppTheme.warmGoldColor;
         break;
       case 'Completed':
-        statusColor = Colors.blue;
+        statusColor = AppTheme.softSageColor;
         break;
       default:
-        statusColor = Colors.grey;
+        statusColor = AppTheme.lightSageGray;
     }
 
     return Card(
@@ -155,7 +155,7 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
                         'Patient: ${chart['patient']}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: AppTheme.textColor.withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -244,12 +244,12 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
 
   Widget _buildInfoChip(IconData icon, String label) {
     return Chip(
-      avatar: Icon(icon, size: 16, color: AppTheme.secondaryColor),
+      avatar: Icon(icon, size: 16, color: AppTheme.primaryColor),
       label: Text(
         label,
         style: const TextStyle(fontSize: 12),
       ),
-      backgroundColor: AppTheme.primaryColor.withOpacity(0.2),
+      backgroundColor: AppTheme.lightSageGray,
       side: BorderSide.none,
     );
   }

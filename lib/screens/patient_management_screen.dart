@@ -170,7 +170,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
           child: Text(
             patient['name'][0].toUpperCase(),
             style: TextStyle(
-              color: AppTheme.secondaryColor,
+              color: AppTheme.backgroundColor,
               fontWeight: FontWeight.bold,
             ),
           ),

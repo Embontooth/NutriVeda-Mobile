@@ -8,7 +8,6 @@ void main() {
 
 class NutriVedaApp extends StatelessWidget {
   const NutriVedaApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

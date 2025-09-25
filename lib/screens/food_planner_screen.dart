@@ -109,9 +109,9 @@ class _FoodPlannerScreenState extends State<FoodPlannerScreen>
           ),
           child: TabBar(
             controller: _tabController,
-            labelColor: AppTheme.secondaryColor,
+            labelColor: AppTheme.primaryColor,
             unselectedLabelColor: AppTheme.textColor.withOpacity(0.6),
-            indicatorColor: AppTheme.secondaryColor,
+            indicatorColor: AppTheme.terracottaColor,
             tabs: const [
               Tab(
                 icon: Icon(Icons.calendar_view_week),
@@ -161,7 +161,7 @@ class _FoodPlannerScreenState extends State<FoodPlannerScreen>
                     const SnackBar(content: Text('Template functionality coming soon')),
                   );
                 },
-                icon: const Icon(Icons.template_add),
+                icon: const Icon(Icons.dashboard),
                 label: const Text('Templates'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
@@ -336,7 +336,7 @@ class _FoodPlannerScreenState extends State<FoodPlannerScreen>
                       children: [
                         Icon(
                           Icons.calendar_today,
-                          color: AppTheme.secondaryColor,
+                          color: AppTheme.primaryColor,
                         ),
                         const SizedBox(width: 8),
                         Column(
@@ -464,7 +464,7 @@ class _FoodPlannerScreenState extends State<FoodPlannerScreen>
                   child: Text(
                     meal['time'],
                     style: TextStyle(
-                      color: AppTheme.secondaryColor,
+                      color: AppTheme.primaryColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nutriveda_mobile/theme/app_theme.dart';
+import 'package:nutriveda_mobile/screens/color_palette_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -13,43 +14,50 @@ class DashboardScreen extends StatelessWidget {
         children: [
           // Welcome Card
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: AppTheme.primaryColor,
-                        child: Icon(
-                          Icons.person,
-                          color: AppTheme.secondaryColor,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppTheme.serenityGradient,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: AppTheme.saffronColor,
+                          child: Icon(
+                            Icons.person,
+                            color: AppTheme.textColor,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome, Dr. Smith',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, Dr. Smith',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textColor,
+                              ),
                             ),
-                          ),
-                          Text(
-                            'Registered Dietitian',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
+                            Text(
+                              'Ayurvedic Nutrition Specialist',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textColor,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -83,19 +91,19 @@ class DashboardScreen extends StatelessWidget {
                 'Active Plans',
                 '18',
                 Icons.assignment,
-                AppTheme.secondaryColor,
+                AppTheme.terracottaColor,
               ),
               _buildStatCard(
                 'Appointments',
                 '8',
                 Icons.schedule,
-                Colors.green,
+                AppTheme.saffronColor,
               ),
               _buildStatCard(
                 'Diet Charts',
                 '32',
                 Icons.restaurant_menu,
-                Colors.orange,
+                AppTheme.warmGoldColor,
               ),
             ],
           ),
@@ -178,6 +186,28 @@ class DashboardScreen extends StatelessWidget {
               ),
             ],
           ),
+          
+          const SizedBox(height: 12),
+          
+          // Color Palette Demo Button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ColorPaletteScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.palette),
+              label: const Text('View Ayurvedic Color Palette'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.saffronColor,
+                side: const BorderSide(color: AppTheme.saffronColor, width: 1.5),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -206,9 +236,9 @@ class DashboardScreen extends StatelessWidget {
             ),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey,
+                color: AppTheme.textColor.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -221,10 +251,10 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildActivityItem(String title, String subtitle, IconData icon, String time) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: AppTheme.primaryColor,
+        backgroundColor: AppTheme.lightSageGray,
         child: Icon(
           icon,
-          color: AppTheme.secondaryColor,
+          color: AppTheme.primaryColor,
           size: 20,
         ),
       ),
@@ -235,9 +265,9 @@ class DashboardScreen extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: Text(
         time,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
-          color: Colors.grey,
+          color: AppTheme.textColor.withOpacity(0.6),
         ),
       ),
     );
