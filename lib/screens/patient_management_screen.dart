@@ -109,11 +109,11 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                         const SnackBar(content: Text('Filter functionality coming soon')),
                       );
                     },
-                    icon: const Icon(Icons.filter_list),
+                    icon: const Icon(Icons.filter_list, color: Colors.white),
                     label: const Text('Filter'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: AppTheme.textColor,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ],

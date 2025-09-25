@@ -45,9 +45,9 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
         // Header Section
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: AppTheme.serenityGradient,
-            borderRadius: const BorderRadius.only(
+          decoration: const BoxDecoration(
+            color: AppTheme.primaryColor,
+            borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(16),
               bottomRight: Radius.circular(16),
             ),
@@ -55,15 +55,15 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Diet Chart Builder',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              // Text(
+              //   'Diet Chart Builder',
+              //   style: TextStyle(
+              //     fontSize: 20,
+              //     fontWeight: FontWeight.bold,
+              //     color: AppTheme.textColor,
+              //   ),
+              //   textAlign: TextAlign.center,
+              // ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => _showCreateDietChartDialog(context),

@@ -161,11 +161,11 @@ class _FoodPlannerScreenState extends State<FoodPlannerScreen>
                     const SnackBar(content: Text('Template functionality coming soon')),
                   );
                 },
-                icon: const Icon(Icons.dashboard),
+                icon: const Icon(Icons.dashboard, color: Colors.white),
                 label: const Text('Templates'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: AppTheme.textColor,
+                  foregroundColor: Colors.white,
                 ),
               ),
             ],

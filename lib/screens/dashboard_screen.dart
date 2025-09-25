@@ -16,7 +16,7 @@ class DashboardScreen extends StatelessWidget {
           Card(
             child: Container(
               decoration: BoxDecoration(
-                gradient: AppTheme.serenityGradient,
+                color: AppTheme.softSageColor,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
@@ -27,7 +27,7 @@ class DashboardScreen extends StatelessWidget {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: AppTheme.saffronColor,
+                          backgroundColor: Colors.white,
                           child: Icon(
                             Icons.person,
                             color: AppTheme.textColor,
