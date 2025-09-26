@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nutriveda_mobile/theme/app_theme.dart';
+import 'package:nutriveda_mobile/services/real_data_service.dart';
 
 class PatientManagementScreen extends StatefulWidget {
   const PatientManagementScreen({super.key});
@@ -11,55 +12,38 @@ class PatientManagementScreen extends StatefulWidget {
 class _PatientManagementScreenState extends State<PatientManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  List<Map<String, dynamic>> _patients = [];
+  bool _isLoading = true;
 
-  // Sample patient data
-  final List<Map<String, dynamic>> _patients = [
-    {
-      'id': '001',
-      'name': 'John Doe',
-      'age': 35,
-      'gender': 'Male',
-      'lastVisit': '2024-01-15',
-      'status': 'Active',
-      'condition': 'Weight Management',
-    },
-    {
-      'id': '002',
-      'name': 'Sarah Wilson',
-      'age': 28,
-      'gender': 'Female',
-      'lastVisit': '2024-01-12',
-      'status': 'Active',
-      'condition': 'Diabetes Management',
-    },
-    {
-      'id': '003',
-      'name': 'Mike Johnson',
-      'age': 42,
-      'gender': 'Male',
-      'lastVisit': '2024-01-10',
-      'status': 'Follow-up',
-      'condition': 'Hypertension Diet',
-    },
-    {
-      'id': '004',
-      'name': 'Emily Davis',
-      'age': 31,
-      'gender': 'Female',
-      'lastVisit': '2024-01-08',
-      'status': 'Active',
-      'condition': 'Sports Nutrition',
-    },
-    {
-      'id': '005',
-      'name': 'Robert Brown',
-      'age': 55,
-      'gender': 'Male',
-      'lastVisit': '2024-01-05',
-      'status': 'Inactive',
-      'condition': 'Heart Health',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadPatients();
+  }
+
+  Future<void> _loadPatients() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final patients = await RealDataService.getPatientList();
+      setState(() {
+        _patients = patients;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading patients: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error loading patients from database')),
+        );
+      }
+    }
+  }
 
   List<Map<String, dynamic>> get _filteredPatients {
     if (_searchQuery.isEmpty) {
@@ -67,7 +51,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
     }
     return _patients.where((patient) {
       return patient['name'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          patient['condition'].toLowerCase().contains(_searchQuery.toLowerCase());
+          (patient['email'] ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -83,7 +67,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
               TextField(
                 controller: _searchController,
                 decoration: const InputDecoration(
-                  hintText: 'Search patients...',
+                  hintText: 'Search patients by name or email...',
                   prefixIcon: Icon(Icons.search),
                 ),
                 onChanged: (value) {
@@ -104,13 +88,9 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Filter functionality coming soon')),
-                      );
-                    },
-                    icon: const Icon(Icons.filter_list, color: Colors.white),
-                    label: const Text('Filter'),
+                    onPressed: _isLoading ? null : _loadPatients,
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    label: const Text('Refresh'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
@@ -124,42 +104,72 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         
         // Patient List
         Expanded(
-          child: _filteredPatients.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No patients found',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _filteredPatients.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            size: 64,
+                            color: AppTheme.textColor.withOpacity(0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _searchQuery.isNotEmpty 
+                                ? 'No patients found matching "$_searchQuery"'
+                                : 'No patients yet',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppTheme.textColor.withOpacity(0.6),
+                            ),
+                          ),
+                          if (_searchQuery.isEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Your patients will appear here when they register',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textColor.withOpacity(0.4),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadPatients,
+                      child: ListView.builder(
+                        itemCount: _filteredPatients.length,
+                        itemBuilder: (context, index) {
+                          final patient = _filteredPatients[index];
+                          return _buildPatientCard(patient);
+                        },
+                      ),
                     ),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _filteredPatients.length,
-                  itemBuilder: (context, index) {
-                    final patient = _filteredPatients[index];
-                    return _buildPatientCard(patient);
-                  },
-                ),
         ),
       ],
     );
   }
 
   Widget _buildPatientCard(Map<String, dynamic> patient) {
-    Color statusColor;
-    switch (patient['status']) {
-      case 'Active':
-        statusColor = Colors.green;
-        break;
-      case 'Follow-up':
-        statusColor = Colors.orange;
-        break;
-      case 'Inactive':
-        statusColor = Colors.grey;
-        break;
-      default:
-        statusColor = Colors.blue;
+    final activePlans = patient['activePlans'] ?? 0;
+    final totalPlans = patient['totalPlans'] ?? 0;
+    final weight = patient['weight'];
+    final height = patient['height'];
+    final joinedDate = patient['joinedDate'] as DateTime?;
+
+    String statusText = 'No Plans';
+    Color statusColor = Colors.grey;
+    
+    if (activePlans > 0) {
+      statusText = 'Active ($activePlans)';
+      statusColor = Colors.green;
+    } else if (totalPlans > 0) {
+      statusText = 'Inactive';
+      statusColor = Colors.orange;
     }
 
     return Card(
@@ -182,9 +192,13 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${patient['age']} years, ${patient['gender']}'),
-            Text('Condition: ${patient['condition']}'),
-            Text('Last Visit: ${patient['lastVisit']}'),
+            if (patient['email'] != null) Text(patient['email']),
+            if (patient['phone'] != null) Text('📞 ${patient['phone']}'),
+            if (weight != null && height != null)
+              Text('📏 ${height.toStringAsFixed(1)}cm, ${weight.toStringAsFixed(1)}kg'),
+            if (joinedDate != null)
+              Text('Joined: ${_formatDate(joinedDate)}'),
+            Text('Plans: $totalPlans total'),
           ],
         ),
         trailing: Column(
@@ -197,7 +211,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                patient['status'],
+                statusText,
                 style: TextStyle(
                   color: statusColor,
                   fontSize: 12,
@@ -441,5 +455,9 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
         );
       },
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 }

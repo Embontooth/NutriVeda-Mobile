@@ -3,7 +3,9 @@ import 'package:nutriveda_mobile/screens/dashboard_screen.dart';
 import 'package:nutriveda_mobile/screens/patient_management_screen.dart';
 import 'package:nutriveda_mobile/screens/diet_chart_builder_screen.dart';
 import 'package:nutriveda_mobile/screens/food_planner_screen.dart';
+import 'package:nutriveda_mobile/screens/firebase_supabase_sync_test_screen.dart';
 import 'package:nutriveda_mobile/theme/app_theme.dart';
+import 'package:nutriveda_mobile/firebase_config.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,17 +58,56 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.account_circle),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile settings coming soon')),
-              );
+            onSelected: (String value) async {
+              if (value == 'logout') {
+                await FirebaseConfig.signOut();
+                // The AuthWrapper in main.dart will automatically redirect to login
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile settings coming soon')),
+                );
+              }
             },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person),
+                    SizedBox(width: 8),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout),
+                    SizedBox(width: 8),
+                    Text('Sign Out'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
       body: _screens[_selectedIndex],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const FirebaseSupabaseSyncTestScreen(),
+            ),
+          );
+        },
+        backgroundColor: Colors.teal,
+        child: const Icon(Icons.sync, color: Colors.white),
+        tooltip: 'Test Firebase-Supabase Sync',
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,

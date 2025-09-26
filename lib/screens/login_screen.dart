@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nutriveda_mobile/screens/home_screen.dart';
 import 'package:nutriveda_mobile/theme/app_theme.dart';
+import 'package:nutriveda_mobile/firebase_config.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -22,13 +24,70 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  void _login() async {
     if (_formKey.currentState!.validate()) {
-      // Navigate to home screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      setState(() {
+        _isLoading = true;
+      });
+      
+      try {
+        final userCredential = await FirebaseConfig.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+        
+        if (userCredential != null && mounted) {
+          // Navigate to home screen on successful login
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        } else {
+          _showErrorSnackBar('Invalid email or password');
+        }
+      } catch (e) {
+        _showErrorSnackBar('Login failed. Please try again.');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
+  }
+
+  void _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final userCredential = await FirebaseConfig.signInWithGoogle();
+      
+      if (userCredential != null && mounted) {
+        // Navigate to home screen on successful login
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar('Google sign-in failed. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
@@ -156,24 +215,81 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton(
-                          onPressed: _login,
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              'Sign In',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          onPressed: _isLoading ? null : _login,
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    'Sign In',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Divider
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'OR',
+                                style: TextStyle(
+                                  color: AppTheme.textColor.withOpacity(0.6),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Google Sign In Button
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _signInWithGoogle,
+                          icon: Image.network(
+                            'https://developers.google.com/identity/images/g-logo.png',
+                            height: 20,
+                            width: 20,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.login),
+                          ),
+                          label: const Text(
+                            'Sign in with Google',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.3)),
                           ),
                         ),
                         const SizedBox(height: 16),
                         TextButton(
-                          onPressed: () {
-                            // Show forgot password dialog
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Forgot password functionality will be added with Firebase'),
-                              ),
-                            );
+                          onPressed: () async {
+                            // Forgot password functionality
+                            final email = _emailController.text.trim();
+                            if (email.isEmpty) {
+                              _showErrorSnackBar('Please enter your email first');
+                              return;
+                            }
+                            
+                            try {
+                              await FirebaseConfig.resetPassword(email);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Password reset email sent!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              _showErrorSnackBar('Failed to send reset email');
+                            }
                           },
                           child: Text(
                             'Forgot Password?',
@@ -191,7 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               // Footer
               Text(
-                'Firebase authentication will be integrated later',
+                'Secure authentication with Firebase & Google',
                 style: TextStyle(
                   color: AppTheme.textColor.withOpacity(0.6),
                   fontSize: 14,
