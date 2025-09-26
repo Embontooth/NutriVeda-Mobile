@@ -3,6 +3,7 @@ import 'package:nutriveda_mobile/theme/app_theme.dart';
 import 'package:nutriveda_mobile/screens/color_palette_screen.dart';
 import 'package:nutriveda_mobile/services/real_data_service.dart';
 import 'package:nutriveda_mobile/models/database_models.dart';
+import 'package:nutriveda_mobile/utils/patient_utils.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,6 +16,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Profile? currentUser;
   Map<String, int> stats = {};
   List<Map<String, dynamic>> activities = [];
+  List<Map<String, dynamic>> recentPatients = [];
   bool isLoading = true;
 
   @override
@@ -32,11 +34,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final user = await RealDataService.getCurrentUserProfile();
       final dashboardStats = await RealDataService.getDashboardStats();
       final recentActivities = await RealDataService.getRecentActivities();
+      
+      // Load recent patients if user is a dietitian
+      List<Map<String, dynamic>> patients = [];
+      if (user?.role == 'dietitian') {
+        final allPatients = await RealDataService.getPatients();
+        // Get the 5 most recent patients
+        patients = allPatients.take(5).toList();
+      }
 
       setState(() {
         currentUser = user;
         stats = dashboardStats;
         activities = recentActivities;
+        recentPatients = patients;
         isLoading = false;
       });
     } catch (e) {
@@ -140,6 +151,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildActivitiesCard(),
             
             const SizedBox(height: 24),
+            
+            // Recent Patients (only for dietitians)
+            if (currentUser?.role == 'dietitian') ...[
+              const Text(
+                'Recent Patients',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              _buildRecentPatientsCard(),
+              
+              const SizedBox(height: 24),
+            ],
             
             // Quick Actions
             const Text(
@@ -304,17 +331,129 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildRecentPatientsCard() {
+    if (recentPatients.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(
+                Icons.people,
+                size: 48,
+                color: AppTheme.textColor.withOpacity(0.3),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No patients yet',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.textColor.withOpacity(0.6),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Add your first patient to get started',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textColor.withOpacity(0.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      child: Column(
+        children: [
+          ...recentPatients.asMap().entries.map((entry) {
+            final index = entry.key;
+            final patient = entry.value;
+            
+            return Column(
+              children: [
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: AppTheme.softSageColor,
+                    child: Text(
+                      (patient['name'] ?? '?').toString().substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textColor,
+                      ),
+                    ),
+                  ),
+                  title: Text(patient['name'] ?? 'Unknown'),
+                  subtitle: Text(
+                    patient['email'] ?? 'No email',
+                    style: TextStyle(
+                      color: AppTheme.textColor.withOpacity(0.6),
+                    ),
+                  ),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'view':
+                          PatientUtils.showPatientDetails(context, patient);
+                          break;
+                        case 'create_plan':
+                          PatientUtils.showCreateDietPlanDialog(
+                            context, 
+                            patient,
+                            onDietPlanCreated: () => _loadDashboardData(),
+                          );
+                          break;
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem<String>(
+                        value: 'view',
+                        child: Row(
+                          children: [
+                            Icon(Icons.visibility, size: 20),
+                            SizedBox(width: 8),
+                            Text('View Details'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'create_plan',
+                        child: Row(
+                          children: [
+                            Icon(Icons.add_circle_outline, size: 20),
+                            SizedBox(width: 8),
+                            Text('Create Diet Plan'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (index < recentPatients.length - 1) const Divider(height: 1),
+              ],
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  
+  // Use PatientUtils for dialog functions
+  void _showAddPatientDialog(BuildContext context) {
+    PatientUtils.showAddPatientDialog(context, onPatientAdded: () {
+      _loadDashboardData();
+    });
+  }
   Widget _buildQuickActions() {
     if (currentUser?.role == 'dietitian') {
       return Row(
         children: [
-          Expanded(
+            Expanded(
             child: ElevatedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add Patient functionality coming soon')),
-                );
-              },
+              onPressed: () => _showAddPatientDialog(context),
               icon: const Icon(Icons.person_add),
               label: const Text('Add Patient'),
             ),

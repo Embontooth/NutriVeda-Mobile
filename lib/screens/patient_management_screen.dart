@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nutriveda_mobile/theme/app_theme.dart';
 import 'package:nutriveda_mobile/services/real_data_service.dart';
+import 'package:nutriveda_mobile/utils/patient_utils.dart';
 
 class PatientManagementScreen extends StatefulWidget {
   const PatientManagementScreen({super.key});
@@ -81,7 +82,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => _showAddPatientDialog(context),
+                      onPressed: () => PatientUtils.showAddPatientDialog(context, onPatientAdded: _loadPatients),
                       icon: const Icon(Icons.person_add),
                       label: const Text('Add Patient'),
                     ),
@@ -268,7 +269,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
   void _handlePatientAction(String action, Map<String, dynamic> patient) {
     switch (action) {
       case 'view':
-        _showPatientDetails(patient);
+        PatientUtils.showPatientDetails(context, patient);
         break;
       case 'edit':
         ScaffoldMessenger.of(context).showSnackBar(
@@ -386,7 +387,7 @@ class _PatientManagementScreenState extends State<PatientManagementScreen> {
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
-                _showCreateDietPlanDialog(patientDetails);
+                PatientUtils.showCreateDietPlanDialog(context, patientDetails, onDietPlanCreated: _loadPatients);
               },
               icon: const Icon(Icons.add),
               label: const Text('Create Diet Plan'),

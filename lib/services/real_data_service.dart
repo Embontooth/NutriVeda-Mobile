@@ -607,10 +607,16 @@ class RealDataService {
     required String mealTime,
   }) async {
     try {
+      // Convert from 0-based (0=Sunday) to 1-based (1=Sunday) for database
+      final dbDayOfWeek = dayOfWeek + 1;
+      
+      // Convert UI meal type to database meal type
+      final dbMealType = _convertMealTypeToDb(mealType);
+      
       final mealPlanData = {
         'diet_chart_id': dietChartId,
-        'day_of_week': dayOfWeek,
-        'meal_type': mealType,
+        'day_of_week': dbDayOfWeek,
+        'meal_type': dbMealType,
         'meal_time': mealTime,
         'created_at': DateTime.now().toIso8601String(),
       };
@@ -697,6 +703,8 @@ class RealDataService {
   // Get meal plans for a specific diet chart
   static Future<List<Map<String, dynamic>>> getMealPlans(String dietChartId) async {
     try {
+      print('🔄 Querying meal plans for diet chart: $dietChartId');
+      
       final response = await SupabaseConfig.client
           .from('meal_plans')
           .select('''
@@ -710,11 +718,18 @@ class RealDataService {
           .order('day_of_week')
           .order('meal_time');
 
-      return (response as List).map((mealPlan) {
+      print('📋 Raw meal plans response: ${response.length} records');
+      
+      final mealPlansList = (response as List).map((mealPlan) {
+        // Convert from 1-based (database) to 0-based (UI) for day of week
+        final dbDayOfWeek = mealPlan['day_of_week'] as int;
+        final uiDayOfWeek = dbDayOfWeek - 1;
+        
+        print('📋 Processing meal plan: ${mealPlan['meal_type']} on day $dbDayOfWeek (DB) -> $uiDayOfWeek (UI)');
         return {
           'id': mealPlan['id'],
-          'dayOfWeek': mealPlan['day_of_week'],
-          'mealType': mealPlan['meal_type'],
+          'dayOfWeek': uiDayOfWeek,
+          'mealType': _convertMealTypeFromDb(mealPlan['meal_type']),
           'mealTime': mealPlan['meal_time'],
           'items': (mealPlan['meal_items'] as List).map((item) {
             final foodItem = item['food_items'];
@@ -735,8 +750,11 @@ class RealDataService {
           }).toList(),
         };
       }).toList();
+      
+      print('✅ Processed ${mealPlansList.length} meal plans');
+      return mealPlansList;
     } catch (e) {
-      print('Error getting meal plans: $e');
+      print('❌ Error getting meal plans: $e');
       return [];
     }
   }
@@ -965,7 +983,7 @@ class RealDataService {
             date_of_birth,
             gender,
             created_at,
-            patient_health_profiles(*)
+            patient_health_profiles!patient_health_profiles_patient_id_fkey(*)
           ''')
           .eq('role', 'patient')
           .order('created_at', ascending: false);
@@ -1002,6 +1020,44 @@ class RealDataService {
     } catch (e) {
       print('Error updating user role: $e');
       throw Exception('Failed to update user role to dietitian');
+    }
+  }
+
+  // Helper method to convert UI meal type to database meal type
+  static String _convertMealTypeToDb(String uiMealType) {
+    switch (uiMealType) {
+      case 'Breakfast':
+        return 'breakfast';
+      case 'Mid-Morning':
+        return 'mid_morning';
+      case 'Lunch':
+        return 'lunch';
+      case 'Evening':
+        return 'evening_snack';
+      case 'Dinner':
+        return 'dinner';
+      default:
+        return 'breakfast'; // Default fallback
+    }
+  }
+
+  // Helper method to convert database meal type to UI meal type
+  static String _convertMealTypeFromDb(String dbMealType) {
+    switch (dbMealType) {
+      case 'breakfast':
+        return 'Breakfast';
+      case 'mid_morning':
+        return 'Mid-Morning';
+      case 'lunch':
+        return 'Lunch';
+      case 'evening_snack':
+        return 'Evening';
+      case 'dinner':
+        return 'Dinner';
+      case 'bedtime':
+        return 'Bedtime';
+      default:
+        return 'Breakfast'; // Default fallback
     }
   }
 }

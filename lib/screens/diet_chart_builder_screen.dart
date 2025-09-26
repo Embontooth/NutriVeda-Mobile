@@ -351,12 +351,14 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: status == 'draft' 
-                        ? () => _editDietChart(chart) 
-                        : null,
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('Edit'),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _addMealPlans(chart),
+                    icon: const Icon(Icons.restaurant_menu, size: 18),
+                    label: const Text('Add Meals'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -753,9 +755,16 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
     );
   }
 
-  void _editDietChart(Map<String, dynamic> chart) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Edit "${chart['name']}" - Coming Soon')),
+  void _addMealPlans(Map<String, dynamic> chart) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MealPlannerScreen(
+          dietChart: chart,
+          onMealPlansUpdated: () {
+            _loadData(); // Refresh the list when meal plans are updated
+          },
+        ),
+      ),
     );
   }
 
@@ -827,5 +836,666 @@ class _DietChartBuilderScreenState extends State<DietChartBuilderScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+// Meal Planner Screen for adding meal plans to diet charts
+class MealPlannerScreen extends StatefulWidget {
+  final Map<String, dynamic> dietChart;
+  final VoidCallback onMealPlansUpdated;
+
+  const MealPlannerScreen({
+    super.key,
+    required this.dietChart,
+    required this.onMealPlansUpdated,
+  });
+
+  @override
+  State<MealPlannerScreen> createState() => _MealPlannerScreenState();
+}
+
+class _MealPlannerScreenState extends State<MealPlannerScreen> {
+  List<Map<String, dynamic>> _mealPlans = [];
+  List<Map<String, dynamic>> _foodItems = [];
+  bool _isLoading = true;
+  
+  final List<String> _weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final [mealPlans, foodItems] = await Future.wait([
+        RealDataService.getMealPlans(widget.dietChart['id']),
+        RealDataService.searchFoodItems(),
+      ]);
+      
+      setState(() {
+        _mealPlans = mealPlans;
+        _foodItems = foodItems;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Meal Plans - ${widget.dietChart['name']}'),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: () => _showAddMealPlanDialog(),
+            icon: const Icon(Icons.add),
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildMealPlansList(),
+    );
+  }
+
+  Widget _buildMealPlansList() {
+    if (_mealPlans.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.restaurant_menu, size: 80, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'No meal plans created yet',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Add meal plans for each day of the week',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _showAddMealPlanDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Meal Plan'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Group meal plans by day of week
+    Map<int, List<Map<String, dynamic>>> weeklyPlans = {};
+    for (var plan in _mealPlans) {
+      final day = plan['dayOfWeek'] as int;
+      weeklyPlans.putIfAbsent(day, () => []).add(plan);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 7,
+      itemBuilder: (context, index) {
+        final dayPlans = weeklyPlans[index] ?? [];
+        final dayName = _weekDays[index];
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: ExpansionTile(
+            title: Text(dayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            subtitle: Text('${dayPlans.length} meal plans'),
+            trailing: IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: () => _showAddMealPlanDialog(dayOfWeek: index),
+            ),
+            children: [
+              if (dayPlans.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No meal plans for this day', style: TextStyle(color: Colors.grey)),
+                )
+              else
+                ...dayPlans.map((plan) => _buildMealPlanTile(plan)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMealPlanTile(Map<String, dynamic> plan) {
+    final items = plan['items'] as List? ?? [];
+    return ListTile(
+      leading: Icon(
+        _getMealIcon(plan['mealType']),
+        color: AppTheme.primaryColor,
+      ),
+      title: Text(plan['mealType'] ?? 'Unknown Meal'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Time: ${plan['mealTime'] ?? 'Not specified'}'),
+          const SizedBox(height: 4),
+          Text('Items: ${items.map((item) => item['name'] ?? 'Unknown').join(', ')}'),
+        ],
+      ),
+      trailing: PopupMenuButton<String>(
+        onSelected: (value) => _handleMealPlanAction(value, plan),
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'add_food',
+            child: ListTile(
+              leading: Icon(Icons.add),
+              title: Text('Add Food'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'edit',
+            child: ListTile(
+              leading: Icon(Icons.edit),
+              title: Text('Edit'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'delete',
+            child: ListTile(
+              leading: Icon(Icons.delete, color: Colors.red),
+              title: Text('Delete', style: TextStyle(color: Colors.red)),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+      onTap: () => _showMealPlanDetails(plan),
+    );
+  }
+
+  IconData _getMealIcon(String? mealType) {
+    switch (mealType?.toLowerCase()) {
+      case 'breakfast':
+        return Icons.free_breakfast;
+      case 'lunch':
+        return Icons.lunch_dining;
+      case 'dinner':
+        return Icons.dinner_dining;
+      case 'evening':
+        return Icons.local_cafe;
+      default:
+        return Icons.restaurant;
+    }
+  }
+
+  void _showAddMealPlanDialog({int? dayOfWeek}) {
+    showDialog(
+      context: context,
+      builder: (context) => AddMealPlanDialog(
+        dietChartId: widget.dietChart['id'],
+        initialDayOfWeek: dayOfWeek,
+        onMealPlanAdded: () {
+          _loadData();
+          widget.onMealPlansUpdated();
+        },
+      ),
+    );
+  }
+
+  void _handleMealPlanAction(String action, Map<String, dynamic> plan) {
+    switch (action) {
+      case 'add_food':
+        _showAddFoodDialog(plan);
+        break;
+      case 'edit':
+        _showEditMealPlanDialog(plan);
+        break;
+      case 'delete':
+        _showDeleteConfirmation(plan);
+        break;
+    }
+  }
+
+  void _showAddFoodDialog(Map<String, dynamic> plan) {
+    showDialog(
+      context: context,
+      builder: (context) => AddFoodItemDialog(
+        mealPlanId: plan['id'],
+        foodItems: _foodItems,
+        onFoodAdded: () {
+          _loadData();
+          widget.onMealPlansUpdated();
+        },
+      ),
+    );
+  }
+
+  void _showEditMealPlanDialog(Map<String, dynamic> plan) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Edit meal plan - Coming Soon')),
+    );
+  }
+
+  void _showDeleteConfirmation(Map<String, dynamic> plan) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Meal Plan'),
+        content: Text('Are you sure you want to delete this ${plan['mealType']} plan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: Implement delete meal plan
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Delete functionality - Coming Soon')),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMealPlanDetails(Map<String, dynamic> plan) {
+    final items = plan['items'] as List? ?? [];
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${plan['mealType']} - ${_weekDays[plan['dayOfWeek']]}'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Time: ${plan['mealTime'] ?? 'Not specified'}', 
+                   style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              const Text('Food Items:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              if (items.isEmpty)
+                const Text('No food items added yet', style: TextStyle(color: Colors.grey))
+              else
+                ...items.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text('Quantity: ${item['quantity'] ?? 'Not specified'}', style: const TextStyle(fontSize: 12)),
+                      if (item['preparationMethod'] != null)
+                        Text('Preparation: ${item['preparationMethod']}', style: const TextStyle(fontSize: 12)),
+                      if (item['notes'] != null)
+                        Text('Notes: ${item['notes']}', style: const TextStyle(fontSize: 12)),
+                      Text('Calories: ${((item['calories'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(1)}', 
+                           style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
+                    ],
+                  ),
+                )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Dialog for adding new meal plans
+class AddMealPlanDialog extends StatefulWidget {
+  final String dietChartId;
+  final int? initialDayOfWeek;
+  final VoidCallback onMealPlanAdded;
+
+  const AddMealPlanDialog({
+    super.key,
+    required this.dietChartId,
+    this.initialDayOfWeek,
+    required this.onMealPlanAdded,
+  });
+
+  @override
+  State<AddMealPlanDialog> createState() => _AddMealPlanDialogState();
+}
+
+class _AddMealPlanDialogState extends State<AddMealPlanDialog> {
+  final List<String> _weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  final List<String> _mealTypes = ['Breakfast', 'Mid-Morning', 'Lunch', 'Evening', 'Dinner'];
+  
+  late int _selectedDayOfWeek;
+  String _selectedMealType = 'Breakfast';
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 8, minute: 0);
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDayOfWeek = widget.initialDayOfWeek ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Meal Plan'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Day of Week
+          DropdownButtonFormField<int>(
+            value: _selectedDayOfWeek,
+            decoration: const InputDecoration(labelText: 'Day of Week'),
+            items: _weekDays.asMap().entries.map((entry) {
+              return DropdownMenuItem<int>(
+                value: entry.key,
+                child: Text(entry.value),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedDayOfWeek = value);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Meal Type
+          DropdownButtonFormField<String>(
+            value: _selectedMealType,
+            decoration: const InputDecoration(labelText: 'Meal Type'),
+            items: _mealTypes.map((type) {
+              return DropdownMenuItem<String>(
+                value: type,
+                child: Text(type),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedMealType = value);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          
+          // Time
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('Time: ${_selectedTime.format(context)}'),
+            trailing: const Icon(Icons.access_time),
+            onTap: () async {
+              final time = await showTimePicker(
+                context: context,
+                initialTime: _selectedTime,
+              );
+              if (time != null) {
+                setState(() => _selectedTime = time);
+              }
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSubmitting ? null : _addMealPlan,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add Plan'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addMealPlan() async {
+    setState(() => _isSubmitting = true);
+    
+    try {
+      final mealTime = '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
+      
+      final result = await RealDataService.addMealPlan(
+        dietChartId: widget.dietChartId,
+        dayOfWeek: _selectedDayOfWeek,
+        mealType: _selectedMealType,
+        mealTime: mealTime,
+      );
+      
+      if (result != null) {
+        Navigator.pop(context);
+        widget.onMealPlanAdded();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${_selectedMealType} plan added for ${_weekDays[_selectedDayOfWeek]}')),
+        );
+      } else {
+        throw Exception('Failed to add meal plan');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
+}
+
+// Dialog for adding food items to meal plans
+class AddFoodItemDialog extends StatefulWidget {
+  final String mealPlanId;
+  final List<Map<String, dynamic>> foodItems;
+  final VoidCallback onFoodAdded;
+
+  const AddFoodItemDialog({
+    super.key,
+    required this.mealPlanId,
+    required this.foodItems,
+    required this.onFoodAdded,
+  });
+
+  @override
+  State<AddFoodItemDialog> createState() => _AddFoodItemDialogState();
+}
+
+class _AddFoodItemDialogState extends State<AddFoodItemDialog> {
+  Map<String, dynamic>? _selectedFoodItem;
+  final _quantityController = TextEditingController(text: '1.0');
+  final _preparationController = TextEditingController();
+  final _notesController = TextEditingController();
+  bool _isSubmitting = false;
+  
+  List<Map<String, dynamic>> _filteredFoodItems = [];
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredFoodItems = widget.foodItems;
+    _searchController.addListener(_filterFoodItems);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _quantityController.dispose();
+    _preparationController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _filterFoodItems() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredFoodItems = widget.foodItems.where((item) {
+        final name = (item['name'] as String? ?? '').toLowerCase();
+        final category = (item['category'] as String? ?? '').toLowerCase();
+        return name.contains(query) || category.contains(query);
+      }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Food Item'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Search food items
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                labelText: 'Search Food Items',
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Food item selection
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView.builder(
+                itemCount: _filteredFoodItems.length,
+                itemBuilder: (context, index) {
+                  final item = _filteredFoodItems[index];
+                  final isSelected = _selectedFoodItem?['id'] == item['id'];
+                  
+                  return ListTile(
+                    title: Text(item['name'] ?? 'Unknown'),
+                    subtitle: Text('${item['category']} - ${item['calories']} cal/100g'),
+                    selected: isSelected,
+                    onTap: () {
+                      setState(() => _selectedFoodItem = item);
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Quantity
+            TextField(
+              controller: _quantityController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Quantity (portions)',
+                helperText: 'Nutritional values are per 100g',
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Preparation method
+            TextField(
+              controller: _preparationController,
+              decoration: const InputDecoration(
+                labelText: 'Preparation Method (Optional)',
+                hintText: 'e.g., Boiled, Grilled, Raw',
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Notes
+            TextField(
+              controller: _notesController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Notes (Optional)',
+                hintText: 'Any additional instructions',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSubmitting || _selectedFoodItem == null ? null : _addFoodItem,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add Food'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addFoodItem() async {
+    setState(() => _isSubmitting = true);
+    
+    try {
+      final quantity = double.tryParse(_quantityController.text) ?? 1.0;
+      
+      final success = await RealDataService.addMealItem(
+        mealPlanId: widget.mealPlanId,
+        foodItemId: _selectedFoodItem!['id'],
+        quantity: quantity,
+        preparationMethod: _preparationController.text.trim().isEmpty ? null : _preparationController.text.trim(),
+        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      );
+      
+      if (success) {
+        Navigator.pop(context);
+        widget.onFoodAdded();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${_selectedFoodItem!['name']} added to meal plan')),
+        );
+      } else {
+        throw Exception('Failed to add food item');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
   }
 }

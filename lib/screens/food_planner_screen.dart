@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/real_data_service.dart';
 import '../theme/app_theme.dart';
+import 'food_recognition_screen.dart';
 
 class FoodPlannerScreen extends StatefulWidget {
   const FoodPlannerScreen({super.key});
@@ -144,6 +145,44 @@ class _FoodPlannerScreenState extends State<FoodPlannerScreen>
       _showErrorSnackBar('Failed to search food items: $e');
     } finally {
       setState(() => isSearching = false);
+    }
+  }
+
+  Future<void> _navigateToFoodRecognition() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FoodRecognitionScreen(),
+      ),
+    );
+    
+    // If food was logged from the AI screen, handle the result
+    if (result != null && result is Map<String, dynamic>) {
+      final foodName = result['foodName'] as String;
+      final quantity = result['quantity'] as double;
+      final mealType = result['mealType'] as String;
+      final nutritionInfo = result['nutritionInfo'] as Map<String, dynamic>?;
+      
+      // Update meal type selector to match
+      setState(() => selectedMealType = mealType);
+      
+      // Create a food item from the AI result
+      final foodItem = {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'name': foodName,
+        'category': nutritionInfo?['category'] ?? 'Other',
+        'calories_per_100g': nutritionInfo?['calories'] ?? 0,
+        'protein_per_100g': nutritionInfo?['protein'] ?? 0,
+        'carbohydrates_per_100g': nutritionInfo?['carbohydrates'] ?? 0,
+        'fat_per_100g': nutritionInfo?['fat'] ?? 0,
+        'fiber_per_100g': nutritionInfo?['fiber'] ?? 0,
+      };
+      
+      // Log the food intake
+      await _logFoodIntake(foodItem, quantity);
+      
+      // Show success message
+      _showSuccessSnackBar('✅ $foodName from AI recognition logged successfully!');
     }
   }
 
@@ -438,115 +477,166 @@ class _FoodPlannerScreenState extends State<FoodPlannerScreen>
     return Padding(
       padding: EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Meal type selector
-          Text('Log food for:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: mealTypes.map((type) => ChoiceChip(
-              label: Text(type),
-              selected: selectedMealType == type,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => selectedMealType = type);
-                }
-              },
-            )).toList(),
-          ),
-          SizedBox(height: 16),
-          
-          // Search bar
-          TextField(
-            controller: searchController,
-            decoration: InputDecoration(
-              hintText: 'Search food items...',
-              prefixIcon: Icon(Icons.search),
-              suffixIcon: isSearching ? 
-                Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+          // Top section - scrollable
+          SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Meal type selector
+                Text('Log food for:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: mealTypes.map((type) => ChoiceChip(
+                    label: Text(type),
+                    selected: selectedMealType == type,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => selectedMealType = type);
+                      }
+                    },
+                  )).toList(),
+                ),
+                SizedBox(height: 16),
+                
+                // Search bar
+                TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search food items...',
+                    prefixIcon: Icon(Icons.search),
+                    suffixIcon: isSearching ? 
+                      Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ) : null,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                ) : null,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  onChanged: _searchFoodItems,
+                ),
+                SizedBox(height: 16),
+                
+                // AI Food Recognition button
+                Container(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: _navigateToFoodRecognition,
+                    icon: Icon(Icons.camera_alt, color: Colors.white),
+                    label: Text(
+                      '🤖 AI Food Recognition',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+              ],
             ),
-            onChanged: _searchFoodItems,
           ),
-          SizedBox(height: 16),
           
-          // Search results
-          if (searchResults.isNotEmpty) ...[
-            Text('Search Results:', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 8),
-            Expanded(
-              child: ListView.builder(
-                itemCount: searchResults.length,
-                itemBuilder: (context, index) {
-                  final food = searchResults[index];
-                  return Card(
-                    child: ListTile(
-                      title: Text(food['name']),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Category: ${food['category']}'),
-                          Text('Calories: ${food['calories']}/100g'),
-                        ],
-                      ),
-                      trailing: ElevatedButton(
-                        onPressed: () => _showQuantityDialog(food),
-                        child: Text('Add'),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ] else if (searchController.text.isNotEmpty && !isSearching) ...[
-            Center(
-              child: Text('No food items found', style: TextStyle(color: Colors.grey)),
-            ),
-          ] else ...[
-            // Today's logged foods
-            Text('Today\'s Food Log:', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 8),
-            Expanded(
-              child: isLoadingIntake 
-                ? Center(child: CircularProgressIndicator())
-                : todayIntakeLogs.isEmpty 
-                  ? Center(child: Text('No food logged today', style: TextStyle(color: Colors.grey)))
-                  : ListView.builder(
-                      itemCount: todayIntakeLogs.length,
-                      itemBuilder: (context, index) {
-                        final log = todayIntakeLogs[index];
-                        return Card(
-                          child: ListTile(
-                            title: Text(log['foodName']),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${log['mealType']} - Quantity: ${log['quantity']}'),
-                                Text('Calories: ${log['caloriesConsumed'].toStringAsFixed(1)}'),
-                                Text('Time: ${log['consumedAt'].toString().substring(11, 16)}'),
-                              ],
-                            ),
-                            leading: CircleAvatar(
-                              backgroundColor: AppTheme.primaryColor,
-                              child: Icon(Icons.restaurant, color: Colors.white),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+          // Bottom section - expandable list
+          Expanded(
+            child: _buildFoodLoggerContent(),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildFoodLoggerContent() {
+    // Search results
+    if (searchResults.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Search Results:', style: TextStyle(fontWeight: FontWeight.w600)),
+          SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              itemCount: searchResults.length,
+              itemBuilder: (context, index) {
+                final food = searchResults[index];
+                return Card(
+                  child: ListTile(
+                    title: Text(food['name']),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Category: ${food['category']}'),
+                        Text('Calories: ${food['calories']}/100g'),
+                      ],
+                    ),
+                    trailing: ElevatedButton(
+                      onPressed: () => _showQuantityDialog(food),
+                      child: Text('Add'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+    } else if (searchController.text.isNotEmpty && !isSearching) {
+      return Center(
+        child: Text('No food items found', style: TextStyle(color: Colors.grey)),
+      );
+    } else {
+      // Today's logged foods
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Today\'s Food Log:', style: TextStyle(fontWeight: FontWeight.w600)),
+          SizedBox(height: 8),
+          Expanded(
+            child: isLoadingIntake 
+              ? Center(child: CircularProgressIndicator())
+              : todayIntakeLogs.isEmpty 
+                ? Center(child: Text('No food logged today', style: TextStyle(color: Colors.grey)))
+                : ListView.builder(
+                    itemCount: todayIntakeLogs.length,
+                    itemBuilder: (context, index) {
+                      final log = todayIntakeLogs[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text(log['foodName']),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${log['mealType']} - Quantity: ${log['quantity']}'),
+                              Text('Calories: ${log['caloriesConsumed'].toStringAsFixed(1)}'),
+                              Text('Time: ${log['consumedAt'].toString().substring(11, 16)}'),
+                            ],
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor,
+                            child: Icon(Icons.restaurant, color: Colors.white),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      );
+    }
   }
 
   void _showQuantityDialog(Map<String, dynamic> food) {
